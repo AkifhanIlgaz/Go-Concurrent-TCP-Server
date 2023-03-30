@@ -3,29 +3,72 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 )
-
-func main() {
-	arguments := os.Args
-	if len(arguments) == 1 {
-		fmt.Println("Please provide port number")
-		return
-	}
-
-	port := ":" + arguments[1]
-
-	initiateConcurrentTCP(port)
-}
 
 const (
 	MIN = 1
 	MAX = 100
 )
+
+func main() {
+	listener, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	defer listener.Close()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		go handleConnectionHTTP(conn)
+	}
+}
+
+func handleConnectionHTTP(connection net.Conn) {
+	defer connection.Close()
+	request(connection)
+	response(connection)
+}
+
+func request(connection net.Conn) {
+	i := 0
+	scanner := bufio.NewScanner(connection)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if i == 0 {
+			m := strings.Fields(line)[0]
+			fmt.Println("Methods", m)
+		}
+
+		if line == "" {
+			break
+		}
+		i++
+	}
+}
+
+func response(connection net.Conn) {
+	body := `
+This Is Go Http Server Using TCP
+Golang HTTP Response
+`
+
+	fmt.Fprint(connection, "HTTP/1.1 200 OK\r\n")
+	fmt.Fprintf(connection, "Content-Length: %d\r\n", len(body))
+	fmt.Fprint(connection, "Content-Type: text/html\r\n")
+	fmt.Fprint(connection, "\r\n")
+	fmt.Fprint(connection, body)
+}
 
 func random() int {
 	return rand.Intn(MAX-MIN) + MIN
